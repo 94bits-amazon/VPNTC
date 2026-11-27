@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row g-4">
+  <!-- Coluna Esquerda: Grupos de VPN Dinâmicos -->
+  <div class="col-lg-5">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-diagram-3 text-primary me-2"></i>Perfis / Grupos de VPN (AD)
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('main.config') }}" class="mb-3">
+          <input type="hidden" name="form_action" value="add_profile">
+
+          <div class="mb-2 position-relative">
+            <label class="form-label small text-secondary">Buscar Grupo no Active Directory</label>
+<input type="text" class="form-control form-control-sm" id="groupSearchInput" placeholder="Ex: GRP-VPN-TUN..." autocomplete="off">            <div class="list-group search-results shadow" id="groupResults"></div>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label small text-secondary">Nome Amigável no Painel</label>
+            <input type="text" name="profile_name" id="profileNameInput" class="form-control form-control-sm" placeholder="Ex: VPN Túnel MFA" required>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label small text-secondary">Distinguished Name (DN) do Grupo</label>
+            <input type="text" name="profile_group_dn" id="profileDnInput" class="form-control form-control-sm" placeholder="CN=...,OU=...,DC=..." required>
+          </div>
+
+          <div class="row g-2 align-items-end">
+            <div class="col-7">
+              <label class="form-label small text-secondary">Cor da Etiqueta</label>
+              <select name="badge_color" class="form-select form-select-sm">
+                <option value="primary">Azul (Primary)</option>
+                <option value="info">Ciano (Info)</option>
+                <option value="success">Verde (Success)</option>
+                <option value="warning">Amarelo (Warning)</option>
+                <option value="secondary">Cinza (Secondary)</option>
+              </select>
+            </div>
+            <div class="col-5 d-grid">
+              <button type="submit" class="btn btn-sm btn-success">
+                <i class="bi bi-plus-lg me-1"></i>Adicionar Grupo
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <hr>
+
+        <div class="list-group list-group-flush">
+          {% for p in profiles %}
+          <div class="list-group-item bg-transparent px-0 d-flex justify-content-between align-items-center">
+            <div class="me-2" style="min-width: 0;">
+              <span class="badge bg-{{ p.badge_color }}">{{ p.name }}</span>
+              {% if not p.active %}<span class="badge bg-danger ms-1">Inativo</span>{% endif %}
+              <div class="small text-secondary text-truncate" title="{{ p.group_dn }}">{{ p.group_dn }}</div>
+            </div>
+            <form method="POST" action="{{ url_for('main.config') }}">
+              <input type="hidden" name="form_action" value="toggle_profile">
+              <input type="hidden" name="profile_id" value="{{ p.id }}">
+              <button type="submit" class="btn btn-sm btn-outline-secondary">
+                {{ 'Desativar' if p.active else 'Ativar' }}
+              </button>
+            </form>
+          </div>
+          {% else %}
+          <div class="text-center text-secondary small py-3">Nenhum grupo cadastrado.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Coluna Direita: Parâmetros AD, FortiAnalyzer e RBAC -->
+  <div class="col-lg-7">
+    <form method="POST" action="{{ url_for('main.config') }}">
+      <input type="hidden" name="form_action" value="save_settings">
+
+      <!-- Active Directory -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center fw-semibold">
+          <span><i class="bi bi-hdd-network text-info me-2"></i>Active Directory (LDAPS)</span>
+          <button type="button" class="btn btn-sm btn-outline-info" onclick="testEndpoint('/api/test-ldap', 'ldapTestStatus')">
+            Testar Conexão AD
+          </button>
+        </div>
+        <div class="card-body">
+          <div id="ldapTestStatus" class="small mb-2"></div>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label small text-secondary">Servidor LDAP/LDAPS</label>
+              <input type="text" name="LDAP_SERVER" value="{{ settings.LDAP_SERVER }}" class="form-control form-control-sm" placeholder="ldaps://dc01.dominio.local:636">
+            </div>
+            <div class="col-md-4 d-flex flex-column justify-content-end">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="LDAP_USE_SSL" id="useSsl" {% if settings.LDAP_USE_SSL == 'true' %}checked{% endif %}>
+                <label class="form-check-label small" for="useSsl">Usar SSL (636)</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="LDAP_VALIDATE_CERT" id="valCert" {% if settings.LDAP_VALIDATE_CERT == 'true' %}checked{% endif %}>
+                <label class="form-check-label small" for="valCert">Validar Certificado</label>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small text-secondary">Base DN</label>
+              <input type="text" name="LDAP_BASE_DN" value="{{ settings.LDAP_BASE_DN }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small text-secondary">OU Busca de Usuários</label>
+              <input type="text" name="LDAP_USER_SEARCH_BASE" value="{{ settings.LDAP_USER_SEARCH_BASE }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <label class="form-label small text-secondary">OU Busca de Grupos</label>
+              <input type="text" name="LDAP_GROUP_SEARCH_BASE" value="{{ settings.LDAP_GROUP_SEARCH_BASE }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-7">
+              <label class="form-label small text-secondary">Bind DN (Conta de Serviço)</label>
+              <input type="text" name="LDAP_BIND_DN" value="{{ settings.LDAP_BIND_DN }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small text-secondary">Senha Bind {% if settings.HAS_LDAP_PASS %}<span class="text-success">(Salva)</span>{% endif %}</label>
+              <input type="password" name="LDAP_BIND_PASSWORD" class="form-control form-control-sm" placeholder="Deixe vazio para manter">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FortiAnalyzer -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center fw-semibold">
+          <span><i class="bi bi-activity text-warning me-2"></i>FortiAnalyzer (Telemetria VPN)</span>
+          <button type="button" class="btn btn-sm btn-outline-warning" onclick="testEndpoint('/api/test-faz', 'fazTestStatus')">
+            Testar API FAZ
+          </button>
+        </div>
+        <div class="card-body">
+          <div id="fazTestStatus" class="small mb-2"></div>
+          <div class="row g-3">
+            <div class="col-12">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="FAZ_ENABLED" id="fazEnabled" {% if settings.FAZ_ENABLED == 'true' %}checked{% endif %}>
+                <label class="form-check-label small" for="fazEnabled">Habilitar coleta de status e tempo conectado via FortiAnalyzer</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small text-secondary">URL do FortiAnalyzer</label>
+              <input type="text" name="FAZ_URL" value="{{ settings.FAZ_URL }}" class="form-control form-control-sm" placeholder="https://10.x.x.x">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small text-secondary">ADOM</label>
+              <input type="text" name="FAZ_ADOM" value="{{ settings.FAZ_ADOM }}" class="form-control form-control-sm" placeholder="root">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="FAZ_VERIFY_SSL" id="fazSsl" {% if settings.FAZ_VERIFY_SSL == 'true' %}checked{% endif %}>
+                <label class="form-check-label small" for="fazSsl">Validar SSL</label>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label small text-secondary">API Bearer Token {% if settings.HAS_FAZ_TOKEN %}<span class="text-success">(Salvo)</span>{% endif %}</label>
+              <input type="password" name="FAZ_API_TOKEN" class="form-control form-control-sm" placeholder="Cole o API Token gerado no FAZ (ou vazio para manter)">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controle de Acesso & Scheduler -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header fw-semibold">
+          <i class="bi bi-shield-check text-success me-2"></i>Permissões (RBAC) & Agendador
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label small text-secondary">Grupos Admin (Authelia Remote-Groups, separados por vírgula)</label>
+              <input type="text" name="ADMIN_GROUPS" value="{{ settings.ADMIN_GROUPS }}" class="form-control form-control-sm" placeholder="Ex: GLO-INFRA-N3, Domain Admins">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small text-secondary">Intervalo Sync (min)</label>
+              <input type="number" name="EXPIRATION_CHECK_INTERVAL_MINUTES" value="{{ settings.EXPIRATION_CHECK_INTERVAL_MINUTES }}" class="form-control form-control-sm" min="1" max="1440">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-grid">
+        <button type="submit" class="btn btn-primary fw-semibold">
+          <i class="bi bi-save me-2"></i>Salvar Todas as Configurações
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function testEndpoint(url, targetId) {
+    const el = document.getElementById(targetId);
+    el.innerHTML = '<span class="text-info">Testando conexão...</span>';
+    try {
+      const res = await fetch(url, { method: 'POST' });
+      const data = await res.json();
+      el.innerHTML = data.ok
+        ? `<span class="text-success"><i class="bi bi-check-circle me-1"></i>${data.message}</span>`
+        : `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>${data.message}</span>`;
+    } catch (err) {
+      el.innerHTML = `<span class="text-danger">Falha na requisição: ${err}</span>`;
+    }
+  }
+
+  const grpInput = document.getElementById('groupSearchInput');
+  const grpResults = document.getElementById('groupResults');
+  let grpTimer;
+
+  grpInput.addEventListener('input', () => {
+    clearTimeout(grpTimer);
+    const q = grpInput.value.trim();
+    if (q.length < 2) { grpResults.innerHTML = ''; return; }
+    grpTimer = setTimeout(async () => {
+      const res = await fetch(`/api/search-groups?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      grpResults.innerHTML = '';
+      if (data.error) {
+        grpResults.innerHTML = `<div class="list-group-item list-group-item-danger small">${data.error}</div>`;
+        return;
+      }
+      data.forEach(g => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'list-group-item list-group-item-action small';
+        btn.innerHTML = `<strong>${g.cn}</strong><div class="text-secondary text-truncate">${g.group_dn}</div>`;
+        btn.onclick = () => {
+          document.getElementById('profileNameInput').value = g.cn;
+          document.getElementById('profileDnInput').value = g.group_dn;
+          grpResults.innerHTML = '';
+        };
+        grpResults.appendChild(btn);
+      });
+    }, 300);
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+services:
+  vpntc:
+    build: .
+    container_name: vpntc
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"- "traefik.http.routers.vpntc.rule=Host(`vpntc.seudominio.local`)"
+      - "traefik.http.routers.vpntc.entrypoints=websecure"
+      - "traefik.http.routers.vpntc.tls=true"
+      - "traefik.http.routers.vpntc.middlewares=authelia@docker"
+      - "traefik.http.services.vpntc.loadbalancer.server.port=5000"
+
+networks:
+  proxy:
+    external: true

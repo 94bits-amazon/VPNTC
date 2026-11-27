@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0"><i class="bi bi-journal-text text-info me-2"></i>Histórico de Auditoria</h5>
+  <form method="GET" class="d-flex gap-2">
+    <input type="text" name="user" value="{{ user_filter }}" class="form-control form-control-sm" placeholder="Filtrar por login...">
+    <button type="submit" class="btn btn-sm btn-outline-light">Buscar</button>
+    {% if user_filter %}
+      <a href="{{ url_for('main.logs') }}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0 small">
+      <thead class="table-dark">
+        <tr>
+          <th>Data / Hora</th>
+          <th>Ação</th>
+          <th>Usuário Alvo</th>
+          <th>Perfil</th>
+          <th>Prazo</th>
+          <th>Ticket</th>
+          <th>Executor</th>
+          <th>Detalhes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in pagination.items %}
+        <tr>
+          <td>{{ log.timestamp.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+          <td>
+            {% if log.action == 'GRANTED' %}
+              <span class="badge bg-success">CONCEDIDO</span>
+            {% elif log.action == 'RENEWED' %}
+              <span class="badge bg-primary">RENOVADO</span>
+            {% elif log.action == 'EXPIRED_AUTO' %}
+              <span class="badge bg-warning text-dark">EXPIRADO (AUTO)</span>
+            {% elif log.action == 'REVOKED_MANUAL' %}
+              <span class="badge bg-danger">REVOGADO</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ log.action }}</span>
+            {% endif %}
+          </td>
+          <td><strong>{{ log.target_user }}</strong></td>
+          <td>{{ log.vpn_profile_name }}</td>
+          <td>{{ log.duration_days ~ 'd' if log.duration_days else '-' }}</td>
+          <td>{{ log.ticket_number or '-' }}</td>
+          <td>
+            {% if log.performed_by == 'SYSTEM' %}
+              <span class="text-warning"><i class="bi bi-robot"></i> SYSTEM</span>
+            {% else %}
+              {{ log.performed_by }}
+            {% endif %}
+          </td>
+          <td class="text-secondary">{{ log.details }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-secondary py-4">Nenhum registro encontrado.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if pagination.pages > 1 %}
+<nav class="mt-3">
+  <ul class="pagination pagination-sm justify-content-center">
+    {% for p in pagination.iter_pages() %}
+      {% if p %}
+        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('main.logs', page=p, user=user_filter) }}">{{ p }}</a>
+        </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+
+{% endblock %}
